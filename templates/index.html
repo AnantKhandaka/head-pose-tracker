@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Head Pose Detection</title>
+  <style>
+    :root {
+      --bg-color: #f0f2f5;
+      --text-color: #222;
+      --panel-bg: rgba(255, 255, 255, 0.7);
+      --accent-color: #007BFF;
+      --shadow-color: rgba(0,0,0,0.1);
+    }
+
+    body.dark {
+      --bg-color: #121212;
+      --text-color: #f5f5f5;
+      --panel-bg: rgba(30, 30, 30, 0.9);
+      --accent-color: #ffcc00;
+      --shadow-color: rgba(255, 255, 255, 0.1);
+    }
+
+    body {
+      background: var(--bg-color);
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      color: var(--text-color);
+      transition: background 0.5s, color 0.5s;
+    }
+
+    h1 {
+      margin: 30px 0 10px;
+      font-size: 2rem;
+    }
+
+    .settings-panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 25px 30px;
+      box-shadow: 0 8px 16px var(--shadow-color);
+      margin-bottom: 20px;
+      width: 90%;
+      max-width: 400px;
+      position: relative;
+    }
+
+    .settings-panel h3 {
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .switch {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 10px 0;
+    }
+
+    .switch label {
+      font-size: 16px;
+    }
+
+    .switch input {
+      width: 40px;
+      height: 20px;
+      position: relative;
+      -webkit-appearance: none;
+      background: #ddd;
+      outline: none;
+      border-radius: 20px;
+      transition: 0.3s;
+      cursor: pointer;
+    }
+
+    .switch input:checked {
+      background: var(--accent-color);
+    }
+
+    .switch input::before {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      top: 1px;
+      left: 1px;
+      background: white;
+      transition: 0.3s;
+    }
+
+    .switch input:checked::before {
+      left: 21px;
+    }
+
+    #toggleBtn {
+      background: var(--accent-color);
+      color: white;
+      font-size: 16px;
+      padding: 12px 25px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: background 0.3s ease;
+    }
+
+    #videoFeed {
+      margin-top: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px var(--shadow-color);
+      display: none;
+    }
+
+    .status {
+      font-size: 14px;
+      margin-top: 8px;
+      font-style: italic;
+    }
+
+    /* Light Bulb Toggle */
+    .bulb-toggle {
+      position: absolute;
+      right: -50px;
+      top: 10px;
+      cursor: pointer;
+    }
+
+    .bulb {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--text-color);
+      border-radius: 50%;
+      position: relative;
+      background: transparent;
+      transition: all 0.5s ease;
+      transform-origin: center;
+    }
+
+    .bulb::before {
+      content: "";
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      width: 8px;
+      height: 15px;
+      background: var(--text-color);
+      transform: translateX(-50%); /* No rotation in light mode */
+      border-radius: 5px;
+      transition: transform 0.5s ease;
+    }
+
+    body.dark .bulb {
+      background: radial-gradient(circle at 50% 70%, #ffee58 20%, #fbc02d 60%, transparent 70%);
+      box-shadow: 0 0 20px #fdd835, 0 0 40px #fbc02d;
+      transform: rotate(180deg); /* Always rotate clockwise */
+    }
+
+    body.dark .bulb::before {
+      transform: translateX(-50%) rotate(180deg); /* Keep clockwise rotation for filament */
+    }
+
+    /* Loader */
+    .loader {
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid var(--accent-color);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin-top: 20px;
+      display: none;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+  </style>
+</head>
+<body>
+
+  <h1>🧠 Head Pose Tracker</h1>
+
+  <div class="settings-panel">
+    <div class="bulb-toggle" onclick="toggleDarkMode()">
+      <div class="bulb"></div>
+    </div>
+    <h3>Customize Tracking Features</h3>
+
+    <div class="switch"><label>Show Face Box</label><input type="checkbox" id="show_box" onchange="updateVideo()"></div>
+    <div class="switch"><label>Show Face Mesh</label><input type="checkbox" id="show_face_mesh" onchange="updateVideo()"></div>
+    <div class="switch"><label>Show Nose Direction</label><input type="checkbox" id="show_nose_line" onchange="updateVideo()"></div>
+    <div class="switch"><label>Show Direction Text</label><input type="checkbox" id="show_text" onchange="updateVideo()"></div>
+    <div class="switch"><label>Enable Alert Sound</label><input type="checkbox" id="enable_beep" onchange="updateVideo()"></div>
+  </div>
+
+  <button onclick="toggleVideo()" id="toggleBtn">Start Video</button>
+
+  <div class="loader" id="loader"></div>
+
+  <div class="video-container">
+    <img id="videoFeed" width="640" height="480" />
+    <p id="status" class="status">Camera is inactive</p>
+  </div>
+
+  <script>
+    let streamOn = false;
+
+    function getSelectedParams() {
+      const params = [];
+      if (document.getElementById("show_box").checked) params.push("show_box=true");
+      if (document.getElementById("show_face_mesh").checked) params.push("show_face_mesh=true");
+      if (document.getElementById("show_nose_line").checked) params.push("show_nose_line=true");
+      if (document.getElementById("show_text").checked) params.push("show_text=true");
+      if (document.getElementById("enable_beep").checked) params.push("enable_beep=true");
+      return params.join("&");
+    }
+
+    function toggleVideo() {
+      const img = document.getElementById('videoFeed');
+      const btn = document.getElementById('toggleBtn');
+      const status = document.getElementById('status');
+      const loader = document.getElementById('loader');
+
+      if (!streamOn) {
+        loader.style.display = "block";
+        const query = getSelectedParams();
+        img.onload = () => {
+          loader.style.display = "none";
+          img.style.display = "block";
+        };
+        img.src = "/video?" + query;
+        btn.textContent = "Stop Video";
+        btn.style.backgroundColor = "#dc3545";
+        status.textContent = "Camera is active";
+      } else {
+        img.src = "";
+        img.style.display = "none";
+        btn.textContent = "Start Video";
+        btn.style.backgroundColor = "";
+        status.textContent = "Camera is inactive";
+        loader.style.display = "none";
+      }
+
+      streamOn = !streamOn;
+    }
+
+    function updateVideo() {
+      if (streamOn) {
+        const img = document.getElementById('videoFeed');
+        const query = getSelectedParams();
+        img.src = "/video?" + query;
+      }
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark");
+    }
+  </script>
+
+</body>
+</html>
